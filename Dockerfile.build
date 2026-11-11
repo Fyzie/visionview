@@ -1,0 +1,44 @@
+# ==============================================================================
+# Multi-Architecture Dockerfile for Compiling VisionView
+# Supports: --platform=linux/amd64 and --platform=linux/arm64
+# ==============================================================================
+
+FROM python:3.10-slim-bullseye AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install system dependencies for PySide6, OpenCV, and compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    libegl1 \
+    libxkbcommon-x11-0 \
+    libfontconfig1 \
+    libdbus-1-3 \
+    git \
+    tar \
+    gzip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency requirements
+COPY requirements.txt .
+
+# Install dependencies and pyinstaller
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    pip install pyinstaller
+
+# Copy project source
+COPY . .
+
+# Run build script to produce standalone binary
+RUN python build.py --clean
+
+# Export stage - outputs the built dist folder
+FROM scratch AS export
+COPY --from=builder /app/dist /

@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Output media directories (stored alongside main program dir)
+media_output/
+test_media_output/
+
+# Captured media files
+*.avi
+*.mp4
+*.mkv
+*.mov
+*.png
+*.jpg
+*.jpeg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+
+# Editor & IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artifacts
+desktop.ini
+.DS_Store
+Thumbs.db
+
+# Test & runtime logs
+.pytest_cache/
+*.log
+
+# PyInstaller / Build outputs
+build/
+dist/
+.build_venv/
+*.egg-info/
