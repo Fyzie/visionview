@@ -47,6 +47,7 @@ hiddenimports = [
     'computer_vision.threshold',
     'utils.annotators',
     'utils.directory_viewer',
+    'utils.device_compatibility',
     'utils.gui_signal',
     'utils.process_canva',
     'utils.video_label',

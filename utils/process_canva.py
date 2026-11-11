@@ -14,6 +14,7 @@ from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath, QDrag
 from PySide6.QtCore import Qt, QPointF, QMimeData
 
 from computer_vision.parameter_dialog import ParameterDialog
+from utils.device_compatibility import check_deep_learning_support, show_unsupported_feature_popup
 
 # -------------------------------
 # PROCESS WINDOW
@@ -114,13 +115,18 @@ class NodeCanvas(QGraphicsView):
         event.accept()
 
     def dropEvent(self, event):
-
         name = event.mimeData().text()
+        clean_name = name.replace(" (Unsupported)", "").strip()
 
-        node = NodeBlock(name)
+        if clean_name.lower() == "deep learning":
+            supported, reason, _ = check_deep_learning_support()
+            if not supported:
+                parent_win = getattr(self, 'process_window', None) or self.window()
+                show_unsupported_feature_popup(parent=parent_win, feature_name="Deep Learning", reason=reason)
+                return
 
+        node = NodeBlock(clean_name)
         pos = self.mapToScene(event.position().toPoint())
-
         self.scene.addItem(node)
         node.setPos(pos)
 
@@ -513,14 +519,28 @@ class ModuleList(QWidget):
         modules_to_add.sort()
 
         # 3. Add the sorted items to the list widget
+        ai_supported, ai_reason, _ = check_deep_learning_support()
         for display_name in modules_to_add:
-            self.list_widget.addItem(QListWidgetItem(display_name))
+            item = QListWidgetItem(display_name)
+            if display_name.lower() == "deep learning" and not ai_supported:
+                item.setText(f"{display_name} (Unsupported)")
+                item.setToolTip(f"Deep Learning is not supported on this device:\n{ai_reason}")
+                item.setForeground(QColor("#888888"))
+            self.list_widget.addItem(item)
 
     def on_item_double_clicked(self, item):
         """When an item is double-clicked, add it to the center of the canvas"""
         name = item.text()
+        clean_name = name.replace(" (Unsupported)", "").strip()
 
-        node = NodeBlock(name)
+        if clean_name.lower() == "deep learning":
+            supported, reason, _ = check_deep_learning_support()
+            if not supported:
+                parent_win = getattr(self, 'process_window', None) or self.window()
+                show_unsupported_feature_popup(parent=parent_win, feature_name="Deep Learning", reason=reason)
+                return
+
+        node = NodeBlock(clean_name)
         
         view_center = self.canvas.viewport().rect().center()
         scene_pos = self.canvas.mapToScene(view_center)
@@ -707,6 +727,12 @@ class NodeBlock(QGraphicsRectItem):
                 parent_widget = view.window()
             else:
                 parent_widget = getattr(view, 'window', view)
+
+        if self.title.strip().lower() == "deep learning":
+            supported, reason, _ = check_deep_learning_support()
+            if not supported:
+                show_unsupported_feature_popup(parent=parent_widget, feature_name="Deep Learning", reason=reason)
+                return
 
         dialog = ParameterDialog(self.title, self.param_def, self.parameters, parent=parent_widget)
         

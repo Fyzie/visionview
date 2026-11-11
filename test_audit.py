@@ -799,6 +799,71 @@ def test_capture_image_shortcuts():
     shutil.rmtree(test_dir, ignore_errors=True)
     print("  -> Capture image shortcuts tests passed successfully!")
 
+def test_device_compatibility_and_ai_fallback():
+    print("\nTesting Device Compatibility and AI Unsupported Fallback...")
+    from utils.device_compatibility import check_deep_learning_support
+    import utils.device_compatibility as dev_comp
+    from utils.process_canva import ProcessWindow, NodeBlock
+    import computer_vision.deep_learning as dl
+
+    # 1. Native device detection
+    supported, reason, details = check_deep_learning_support(force_refresh=True)
+    assert isinstance(supported, bool)
+    assert isinstance(details, dict)
+    print(f"  -> Native hardware check: supported={supported}, device={details.get('device')}")
+
+    # 2. Simulate unsupported device (e.g. laptop without PyTorch / CUDA)
+    os.environ["VISIONVIEW_FORCE_NO_TORCH"] = "1"
+    no_support, no_reason, _ = check_deep_learning_support(force_refresh=True)
+    assert no_support is False
+    assert "override" in no_reason or "not installed" in no_reason
+    print("  -> Unsupported device detection verified!")
+
+    # 3. Test deep_learning.process() graceful fallback
+    dummy_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    out_img = dl.process(dummy_img, {"model_script": "rfdetr_inference", "model_dir": "non_existent"})
+    assert out_img is dummy_img, "process() should safely return original frame on unsupported device"
+    print("  -> deep_learning.process() safe bypass on unsupported device verified!")
+
+    # 4. Test UI popup prevention on canvas
+    proc_win = ProcessWindow()
+    canvas = proc_win.canvas
+    initial_node_count = len([item for item in canvas.scene.items() if isinstance(item, NodeBlock)])
+
+    popup_triggered = []
+    def mock_popup(parent=None, feature_name="Deep Learning", reason=None):
+        popup_triggered.append((feature_name, reason))
+        return 1
+
+    orig_popup = dev_comp.show_unsupported_feature_popup
+    dev_comp.show_unsupported_feature_popup = mock_popup
+    import utils.process_canva as pc_mod
+    orig_pc_popup = getattr(pc_mod, 'show_unsupported_feature_popup', None)
+    pc_mod.show_unsupported_feature_popup = mock_popup
+    os.environ["VISIONVIEW_HEADLESS_TEST"] = "1"
+
+    try:
+        from PySide6.QtWidgets import QListWidgetItem
+        item = QListWidgetItem("Deep Learning")
+        proc_win.module_list.on_item_double_clicked(item)
+        QApplication.processEvents()
+
+        assert len(popup_triggered) == 1, f"show_unsupported_feature_popup should have been triggered, got {popup_triggered}!"
+        assert popup_triggered[0][0] == "Deep Learning"
+        new_node_count = len([item for item in canvas.scene.items() if isinstance(item, NodeBlock)])
+        assert new_node_count == initial_node_count, "Node should NOT be added to canvas on unsupported device!"
+        print("  -> 'This feature is not supported in your device' popup trigger verified without node insertion!")
+    finally:
+        dev_comp.show_unsupported_feature_popup = orig_popup
+        if orig_pc_popup:
+            pc_mod.show_unsupported_feature_popup = orig_pc_popup
+        os.environ.pop("VISIONVIEW_HEADLESS_TEST", None)
+        os.environ.pop("VISIONVIEW_FORCE_NO_TORCH", None)
+        check_deep_learning_support(force_refresh=True)
+        proc_win.close()
+
+    print("  -> Device compatibility and AI fallback tests passed successfully!")
+
 if __name__ == "__main__":
     test_imports()
     test_filters()
@@ -812,4 +877,5 @@ if __name__ == "__main__":
     test_video_streaming_optimizations()
     test_spinbox_and_input_styling()
     test_capture_image_shortcuts()
+    test_device_compatibility_and_ai_fallback()
     print("\nALL AUDIT AND FEATURE TESTS PASSED SUCCESSFULLY!")

@@ -46,6 +46,11 @@ def process(frame, params=None):
     if params is None:
         params = {}
 
+    from utils.device_compatibility import check_deep_learning_support
+    supported, _, _ = check_deep_learning_support()
+    if not supported:
+        return frame
+
     script_name = params.get("model_script", "None")
     model_dir = params.get("model_dir", "")
 
