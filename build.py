@@ -66,12 +66,20 @@ def check_dependencies():
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller>=6.5.0"])
         
     core_pkgs = ["PySide6", "cv2", "numpy", "qt_material_icons", "pypylon"]
+    missing_pkgs = []
     for pkg in core_pkgs:
         try:
             __import__(pkg)
             print(f"  [+] {pkg}: Found")
         except ImportError:
-            print(f"  [!] Warning: '{pkg}' is not installed in the active environment.")
+            print(f"  [!] Missing required package: '{pkg}'")
+            missing_pkgs.append(pkg)
+            
+    if missing_pkgs:
+        print(f"\n[FATAL ERROR] Cannot build VisionView: missing core dependencies: {missing_pkgs}")
+        print("Please ensure your environment has installed all requirements:")
+        print("    pip install -r requirements.txt\n")
+        sys.exit(1)
 
 def clean_build_artifacts():
     print("[*] Cleaning build artifacts...")

@@ -1,0 +1,11 @@
+# ==============================================================================
+# VisionView - Optional Deep Learning & AI Inference Dependencies
+# (Install if using RF-DETR object detection or custom PyTorch models)
+# ==============================================================================
+
+-r requirements.txt
+torch>=2.0.0
+torchvision>=0.15.0
+rfdetr>=1.6.0
+supervision>=0.25.0
+pycocotools>=2.0.7

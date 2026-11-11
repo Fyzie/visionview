@@ -1,25 +1,16 @@
 # ==============================================================================
-# VisionView Application - Dependency Requirements
-# Verified against active environment 'rfdetr-1.6' (Python 3.10+)
+# VisionView Application - Core Dependencies
+# Compatible with Python 3.10 & 3.11 across Windows, Linux & Linux ARM
 # ==============================================================================
 
 # --- Core Application & GUI Framework ---
-PySide6==6.9.2
-qt-material-icons==0.5.2
+PySide6>=6.5.0
+qt-material-icons>=0.5.2
 
 # --- Vision Processing & Hardware Camera SDK ---
-opencv-contrib-python==5.0.0.93
-numpy==2.4.3
-pypylon==26.3.1
+opencv-contrib-python>=4.8.0
+numpy>=1.24.0,<3.0.0
+pypylon>=26.0.0
 
-# --- Optional: Deep Learning & AI Inference (for ai_modules / rfdetr) ---
-# Note: Install with CUDA support if using GPU acceleration:
-#   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu126
-torch>=2.0.0
-torchvision>=0.15.0
-rfdetr==1.6.1
-supervision==0.27.0.post2
-pycocotools==2.0.11
-
-# --- Application Standalone Compilation & Packaging ---
-pyinstaller==6.19.0
+# --- Standalone Application Packaging ---
+pyinstaller>=6.5.0

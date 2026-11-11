@@ -12,17 +12,20 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: Windows-x64
             os: windows-latest
-            python-version: '3.10'
+            python-version: '3.11'
             archive: VisionView-windows-x64.zip
           - target: Linux-x86_64
             os: ubuntu-latest
-            python-version: '3.10'
+            python-version: '3.11'
             archive: VisionView-linux-x86_64.tar.gz
 
     steps:
@@ -33,7 +36,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -49,19 +51,24 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           python -m pip install -r requirements.txt
-          python -m pip install pyinstaller
 
-      - name: Compile application
+      - name: Verify installed packages
+        run: |
+          python -c "import PySide6; print('PySide6 version:', PySide6.__version__)"
+          python -c "import cv2, numpy, qt_material_icons; print('OpenCV, NumPy, Icons verified!')"
+          python -c "import pypylon; print('Pypylon verified!')"
+
+      - name: Compile standalone application
         run: |
           python build.py --clean
 
-      - name: Upload Build Artifacts
+      - name: Upload Standalone App Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: VisionView-${{ matrix.target }}
-          path: dist/${{ matrix.archive }}
+          path: dist/VisionView/
 
   build-arm64:
     name: Build Linux-ARM64 (QEMU)
@@ -85,4 +92,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VisionView-Linux-ARM64
-          path: dist/docker-arm64/
+          path: dist/docker-arm64/VisionView/
