@@ -3,41 +3,44 @@ setlocal enabledelayedexpansion
 title VisionView Automated Standalone Compiler
 
 echo ==========================================================
-echo  VisionView Standalone Compiler for Windows
+echo  VisionView Automated Standalone Compiler for Windows
 echo ==========================================================
 
-REM 1. Locate Python interpreter
+REM 1. Locate any Python 3 interpreter on the host system
 set PYTHON_EXE=
 
-REM Check Conda environments (rfdetr-1.6)
-if exist "%USERPROFILE%\miniconda3\envs\rfdetr-1.6\python.exe" (
-    set "PYTHON_EXE=%USERPROFILE%\miniconda3\envs\rfdetr-1.6\python.exe"
-    echo [+] Detected Anaconda environment: rfdetr-1.6
-) else if exist "%USERPROFILE%\anaconda3\envs\rfdetr-1.6\python.exe" (
-    set "PYTHON_EXE=%USERPROFILE%\anaconda3\envs\rfdetr-1.6\python.exe"
-    echo [+] Detected Anaconda environment: rfdetr-1.6
-) else (
-    REM Check system PATH python
-    where python >nul 2>nul
+REM Check if python is in PATH
+where python >nul 2>nul
+if !errorlevel! equ 0 (
+    for /f "tokens=*" %%i in ('where python') do (
+        if not defined PYTHON_EXE set "PYTHON_EXE=%%i"
+    )
+    echo [+] Detected System Python: !PYTHON_EXE!
+)
+
+REM Check Windows Python launcher (py)
+if not defined PYTHON_EXE (
+    where py >nul 2>nul
     if !errorlevel! equ 0 (
-        for /f "tokens=*" %%i in ('where python') do (
-            if not defined PYTHON_EXE set "PYTHON_EXE=%%i"
-        )
-        echo [+] Detected System Python: !PYTHON_EXE!
-    ) else (
-        REM Check Windows Python launcher (py)
-        where py >nul 2>nul
-        if !errorlevel! equ 0 (
-            set "PYTHON_EXE=py"
-            echo [+] Detected Python Launcher: py
+        set "PYTHON_EXE=py"
+        echo [+] Detected Python Launcher: py
+    )
+)
+
+REM Check common Python install locations
+if not defined PYTHON_EXE (
+    for /d %%d in ("%LOCALAPPDATA%\Programs\Python\Python3*") do (
+        if exist "%%d\python.exe" (
+            set "PYTHON_EXE=%%d\python.exe"
+            echo [+] Found Python at: !PYTHON_EXE!
         )
     )
 )
 
-REM 2. If Python is still not found, attempt auto-install via winget
+REM 2. If Python is still not found, automatically install via winget
 if not defined PYTHON_EXE (
-    echo [!] Python is not installed or not in PATH.
-    echo [*] Attempting automated installation via Windows Package Manager (winget)...
+    echo [!] Python was not detected on this machine.
+    echo [*] Automatically installing Python 3.10 via Windows Package Manager (winget)...
     where winget >nul 2>nul
     if !errorlevel! equ 0 (
         winget install --id Python.Python.3.10 -e --accept-source-agreements --accept-package-agreements
@@ -50,36 +53,29 @@ if not defined PYTHON_EXE (
 
 if not defined PYTHON_EXE (
     echo.
-    echo [ERROR] Python 3.10+ is required to compile VisionView.
+    echo [ERROR] Python 3.10+ is required to build VisionView.
     echo Please install Python from https://www.python.org/downloads/
     pause
     exit /b 1
 )
 
-REM 3. Automated Dependency Download & Environment Setup
-set IS_CONDA=0
-echo !PYTHON_EXE! | findstr /i "envs\rfdetr" >nul
-if !errorlevel! equ 0 set IS_CONDA=1
-
-if "!IS_CONDA!"=="0" (
-    if not exist ".build_venv\Scripts\python.exe" (
-        echo [*] Setting up isolated automated build environment (.build_venv)...
-        "%PYTHON_EXE%" -m venv .build_venv
-    )
-    set "PYTHON_EXE=.build_venv\Scripts\python.exe"
-    echo [*] Checking and automatically downloading required packages from requirements.txt...
-    "%PYTHON_EXE%" -m pip install --upgrade pip
-    "%PYTHON_EXE%" -m pip install -r requirements.txt
-    "%PYTHON_EXE%" -m pip install pyinstaller
-) else (
-    echo [*] Verifying PyInstaller in rfdetr-1.6...
-    "%PYTHON_EXE%" -m pip install -q pyinstaller
+REM 3. Automated Virtual Environment & Dependency Installation
+if not exist ".build_venv\Scripts\python.exe" (
+    echo [*] Creating isolated build virtual environment (.build_venv)...
+    "%PYTHON_EXE%" -m venv .build_venv
 )
+
+set "VENV_PYTHON=.build_venv\Scripts\python.exe"
+
+echo [*] Automatically checking and downloading required packages from requirements.txt...
+"%VENV_PYTHON%" -m pip install --upgrade pip
+"%VENV_PYTHON%" -m pip install -r requirements.txt
+"%VENV_PYTHON%" -m pip install pyinstaller
 
 REM 4. Execute compilation
 echo.
 echo [*] Compiling VisionView into standalone application...
-"%PYTHON_EXE%" build.py %*
+"%VENV_PYTHON%" build.py %*
 
 if !errorlevel! equ 0 (
     echo.

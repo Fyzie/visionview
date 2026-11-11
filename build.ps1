@@ -2,9 +2,10 @@
 .SYNOPSIS
     Automated Standalone Application Compiler for VisionView (Windows).
 .DESCRIPTION
-    Zero-configuration build script. Automatically locates Python or creates
-    a dedicated virtual environment, downloads missing dependencies from
-    requirements.txt, and compiles VisionView into a standalone executable.
+    Zero-configuration, self-provisioning build script. Automatically locates
+    Python or installs it via winget, creates an isolated virtual environment
+    (.build_venv), downloads all dependencies from requirements.txt, and
+    compiles VisionView into a standalone executable.
 .USAGE
     .\build.ps1
     .\build.ps1 -Clean
@@ -24,33 +25,28 @@ Write-Host "==========================================================" -Foregro
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
-# 1. Detect Python Interpreter
+# 1. Locate Python Interpreter
 $PYTHON_EXE = $null
 
-$CONDA_CANDIDATES = @(
-    "$env:USERPROFILE\miniconda3\envs\rfdetr-1.6\python.exe",
-    "$env:USERPROFILE\anaconda3\envs\rfdetr-1.6\python.exe"
-)
-
-foreach ($c in $CONDA_CANDIDATES) {
-    if (Test-Path $c) {
-        $PYTHON_EXE = $c
-        Write-Host "[+] Found Anaconda environment: $c" -ForegroundColor Green
-        break
+if (Get-Command "python" -ErrorAction SilentlyContinue) {
+    $PYTHON_EXE = (Get-Command python).Source
+    Write-Host "[+] Found System Python: $PYTHON_EXE" -ForegroundColor Green
+} elseif (Get-Command "py" -ErrorAction SilentlyContinue) {
+    $PYTHON_EXE = "py"
+    Write-Host "[+] Found Python Launcher: py" -ForegroundColor Green
+} else {
+    $commonPaths = Get-ChildItem "$env:LOCALAPPDATA\Programs\Python\Python3*" -ErrorAction SilentlyContinue
+    foreach ($p in $commonPaths) {
+        $candidate = Join-Path $p.FullName "python.exe"
+        if (Test-Path $candidate) {
+            $PYTHON_EXE = $candidate
+            Write-Host "[+] Found Python at: $PYTHON_EXE" -ForegroundColor Green
+            break
+        }
     }
 }
 
-if (-not $PYTHON_EXE) {
-    if (Get-Command "python" -ErrorAction SilentlyContinue) {
-        $PYTHON_EXE = (Get-Command python).Source
-        Write-Host "[+] Found System Python: $PYTHON_EXE" -ForegroundColor Green
-    } elseif (Get-Command "py" -ErrorAction SilentlyContinue) {
-        $PYTHON_EXE = "py"
-        Write-Host "[+] Found Python Launcher: py" -ForegroundColor Green
-    }
-}
-
-# 2. Attempt winget auto-install if Python is completely absent
+# 2. Automatically install Python via winget if absent
 if (-not $PYTHON_EXE) {
     Write-Host "[!] Python was not detected on this machine." -ForegroundColor Yellow
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
@@ -63,28 +59,21 @@ if (-not $PYTHON_EXE) {
 }
 
 if (-not $PYTHON_EXE) {
-    Write-Error "Python 3.10+ is required. Please install Python from https://www.python.org/downloads/"
+    Write-Error "Python 3.10+ is required to build VisionView. Please install Python from https://www.python.org/downloads/"
 }
 
 # 3. Automated Virtual Environment & Dependency Installation
-$isConda = $PYTHON_EXE -match "envs\\rfdetr"
+$VENV_PYTHON = "$ScriptDir\.build_venv\Scripts\python.exe"
 
-if (-not $isConda) {
-    $VENV_PYTHON = "$ScriptDir\.build_venv\Scripts\python.exe"
-    if (-not (Test-Path $VENV_PYTHON)) {
-        Write-Host "[*] Creating automated isolated virtual environment (.build_venv)..." -ForegroundColor Cyan
-        & $PYTHON_EXE -m venv "$ScriptDir\.build_venv"
-    }
-    $PYTHON_EXE = $VENV_PYTHON
-    
-    Write-Host "[*] Checking and automatically downloading dependencies from requirements.txt..." -ForegroundColor Cyan
-    & $PYTHON_EXE -m pip install --upgrade pip
-    & $PYTHON_EXE -m pip install -r "$ScriptDir\requirements.txt"
-    & $PYTHON_EXE -m pip install pyinstaller
-} else {
-    Write-Host "[*] Checking build tools in rfdetr-1.6 environment..." -ForegroundColor Cyan
-    & $PYTHON_EXE -m pip install -q pyinstaller
+if (-not (Test-Path $VENV_PYTHON)) {
+    Write-Host "[*] Creating isolated automated build environment (.build_venv)..." -ForegroundColor Cyan
+    & $PYTHON_EXE -m venv "$ScriptDir\.build_venv"
 }
+
+Write-Host "[*] Checking and automatically downloading dependencies from requirements.txt..." -ForegroundColor Cyan
+& $VENV_PYTHON -m pip install --upgrade pip
+& $VENV_PYTHON -m pip install -r "$ScriptDir\requirements.txt"
+& $VENV_PYTHON -m pip install pyinstaller
 
 # 4. Compile Standalone Application
 $BuildArgs = @("build.py")
@@ -93,7 +82,7 @@ if ($Clean) {
 }
 
 Write-Host "`n[*] Starting compilation..." -ForegroundColor Green
-& $PYTHON_EXE @BuildArgs
+& $VENV_PYTHON @BuildArgs
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n==========================================================" -ForegroundColor Green

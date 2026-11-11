@@ -14,7 +14,12 @@
 - **Deep Learning / AI Inference**: Modular AI engine with built-in support for **RF-DETR** object detection and custom segmentation models.
 - **Interactive Measurement Tools**: Pixel-accurate Area measurement tools (Square and Multi-point Polygon) with real-time area calculations.
 - **High-Performance Video Pipeline**: Optimized multi-threaded frame processing with sub-2ms latency for high-resolution cameras (e.g., 4200×2128 at full framerate).
-- **Capture & Recording**: Instant snapshots (`Ctrl+S` / `Ctrl+Shift+S`) and AVI video recording stored automatically in a clean `media_output` directory alongside the application.
+- **Instant Snapshots & Recording**: Keyboard shortcuts (`Ctrl+S` / `Ctrl+Shift+S`, case-insensitive) for instant image capture and AVI video recording stored automatically in a clean `media_output` directory alongside the application.
+- **Modern Industrial UI**:
+  - Pure white value fields for numerical SpinBoxes and ComboBoxes with responsive stepper buttons.
+  - Solid blue indicator fills (`#0078d4`) for checkboxes without tick signs.
+  - Consistent dock backgrounds across Saved Directory and Camera Parameters panels.
+  - Smart canvas layout management: adding modules automatically restores enlarged modules to the grid to prevent window overlapping.
 
 ---
 
@@ -24,12 +29,12 @@
 VISION_APP_FOR_GENERAL/
 ├── main.py                     # Main application window & UI lifecycle
 ├── test_audit.py               # Comprehensive 12-suite automated verification tests
-├── requirements.txt            # Audited dependency specification
+├── requirements.txt            # Audited dependency specification (Core, Vision SDK & AI modules)
 ├── VisionView.spec             # PyInstaller packaging blueprint
 ├── build.py                    # Cross-platform Python build orchestrator
-├── build.ps1                   # Automated Windows PowerShell build script
-├── build.bat                   # Click-to-build Windows batch script
-├── build.sh                    # Automated Linux & ARM (Raspberry Pi/Jetson) build script
+├── build.ps1                   # Automated Windows PowerShell build script (self-provisioning)
+├── build.bat                   # Click-to-build Windows batch script (self-provisioning)
+├── build.sh                    # Automated Linux & ARM build script (self-provisioning)
 ├── Dockerfile.build            # Multi-architecture container recipe (Linux x86_64 & ARM64)
 ├── build_docker.ps1 / .sh      # Docker cross-compilation helpers
 ├── .github/workflows/build.yml # GitHub Actions automated CI/CD matrix build
@@ -37,7 +42,7 @@ VISION_APP_FOR_GENERAL/
 ├── computer_vision/            # Filter modules (Canny, CLAHE, blur, resize, crop, etc.)
 ├── ai_modules/                 # Deep learning inference scripts (RF-DETR)
 ├── utils/                      # Canvas node editor, annotations, video label, directory viewer
-└── icons/                      # Toolbar icons and Windows application icon
+└── icons/                      # Toolbar icons and multi-resolution Windows app icon (.ico)
 ```
 
 ---
@@ -46,7 +51,7 @@ VISION_APP_FOR_GENERAL/
 
 ### 1. Prerequisites
 - Python 3.10 or 3.11
-- Recommended: Anaconda / Miniconda (environment name: `rfdetr-1.6`)
+- Works with standard Python virtual environments (`venv`) or Anaconda/Miniconda
 
 ### 2. Installation
 Clone the repository and install the dependencies:
@@ -79,21 +84,39 @@ python test_audit.py
 
 ---
 
-## Step-by-Step Compilation Guide
+## Automated Self-Provisioning Compilation
 
-VisionView provides **zero-configuration compilation scripts**. You do not need to manually configure PyInstaller or manually manage dependencies to build the standalone binary.
+VisionView includes **fully automated, zero-configuration build scripts**. Anyone cloning or receiving this repository can build standalone executables without manually configuring Python or activating environments.
+
+### How the Automated Build Flow Works
+
+```mermaid
+flowchart TD
+    A["Trigger Build<br/>(Windows: Double-click build.bat / Linux: ./build.sh)"] --> B{"Is Python installed?"}
+    B -- No --> C["Auto-install Python 3.10 via Windows winget / Linux apt"]
+    B -- Yes --> D["Create isolated '.build_venv' virtual environment"]
+    C --> D
+    D --> E["Automatically download & install requirements.txt + pyinstaller"]
+    E --> F["Compile standalone binary using VisionView.spec"]
+    F --> G["Output ready-to-run dist/VisionView/ & distribution archive (.zip / .tar.gz)"]
+```
+
+---
+
+## Step-by-Step Compilation Guide by Platform
 
 ### Option 1: Windows (x64) Standalone Executable
 
-#### Method A: Click-to-Build (No Terminal Knowledge Needed)
+#### Method A: Click-to-Build (Zero Terminal Knowledge Required)
 1. Simply **double-click** [`build.bat`](file:///c:/Users/Hafizi/Documents/computer%20vision/VISION_APP_FOR_GENERAL/build.bat).
 2. The script will automatically:
-   - Detect Python (or Anaconda `rfdetr-1.6`).
-   - If Python is not installed, it offers to install it via Windows Package Manager (`winget`).
-   - Create an isolated virtual environment (`.build_venv`) if not using conda.
-   - Automatically download and install all missing dependencies from `requirements.txt`.
+   - Detect any installed Python (or automatically install Python 3.10 via `winget` if missing).
+   - Create an isolated `.build_venv` virtual environment in the project directory.
+   - Automatically download and install all missing dependencies from `requirements.txt` and `pyinstaller`.
    - Compile the program using `VisionView.spec`.
-   - Produce a ready-to-run folder `dist/VisionView/` and a compressed zip `dist/VisionView-windows-x64.zip`.
+   - Bundle Basler Pylon SDK binaries, OpenCV, and Qt Material Icons.
+   - Produce a ready-to-run folder `dist\VisionView\` and a standalone zip `dist\VisionView-windows-x64.zip`.
+   - **No pre-existing conda environment or manual command line activation required!**
 
 #### Method B: PowerShell
 ```powershell
@@ -130,10 +153,10 @@ To build a native Linux standalone application:
 
 ### Option 3: Linux ARM (Raspberry Pi 4/5 64-bit or NVIDIA Jetson)
 
-VisionView runs on ARM single-board computers (Raspberry Pi 4/5 running 64-bit OS, NVIDIA Jetson Nano/Orin, RockPi).
+VisionView runs natively on ARM single-board computers (Raspberry Pi 4/5 running 64-bit OS, NVIDIA Jetson Nano/Orin, RockPi).
 
 1. On your ARM board, clone the repository.
-2. Run the same shell build script:
+2. Run the build script:
    ```bash
    chmod +x build.sh
    ./build.sh
@@ -174,7 +197,7 @@ This repository includes a ready-to-use GitHub Actions workflow [`.github/workfl
 - Whenever you push code or create a version tag (e.g., `git tag v1.0.0 && git push --tags`):
   1. GitHub cloud runners spin up **Windows**, **Ubuntu**, and **QEMU ARM64** virtual machines.
   2. All three platforms compile in parallel.
-  3. Pre-packaged standalone ZIP and TAR.GZ archives are automatically uploaded to your GitHub repository's **Actions / Releases** tab for one-click downloading!
+  3. Pre-packaged standalone ZIP and TAR.GZ archives are automatically uploaded to your GitHub repository's **Actions / Releases** tab for one-click downloading.
 
 ---
 
